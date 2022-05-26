@@ -1,0 +1,36 @@
+description: create rgbds package
+
+
+inputs:
+  version:
+    description: toolchain version
+    required: false
+    default: 0.6.0
+
+
+runs:
+  using: composite
+
+  steps:
+    - working-directory: ${{ github.action_path }}
+      shell: bash
+      run: |
+        curl -L https://github.com/rednex/rgbds/archive/v${{ inputs.version }}.zip > rgbds.zip
+        unzip -q rgbds.zip
+
+        cd rgbds-*
+        sudo make install
+
+
+
+    - working-directory: ${{ github.action_path }}
+      shell: bash
+      run: |
+        cd rgbds-*
+
+        zip -9 ${{ github.workspace }}/rgbds.zip \
+          rgb*
+
+
+        cd ${{ github.workspace }}
+        unzip -l rgbds.zip
