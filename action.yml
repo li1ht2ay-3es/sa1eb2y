@@ -1,0 +1,13 @@
+runs:
+  using: composite
+
+  steps:
+    - working-directory: ${{ github.action_path }}
+      env:
+        action_repository: ${{ github.action_repository }}
+      shell: bash
+      run: |
+        curl -L "https://github.com/${{ env.action_repository }}/raw/rgbds-ubuntu/rgbds.zip" -o "rgbds.zip"
+        unzip -q rgbds.zip
+
+        echo $PWD >> $GITHUB_PATH
