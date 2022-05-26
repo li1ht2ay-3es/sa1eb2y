@@ -1,0 +1,26 @@
+description: Install SameBoy tools
+
+
+runs:
+  using: composite
+
+  steps:
+    - working-directory: ${{ github.action_path }}
+      shell: bash
+      run: |
+        echo $PWD >> $GITHUB_PATH
+
+        gcc stub.c -o xdg-open
+        gcc stub.c -o pkg-config
+
+
+
+    - if: runner.os == 'Windows'
+      working-directory: ${{ github.action_path }}
+      shell: bash
+      run: |
+        gcc hexdump.c -o hexdump
+
+
+
+    - uses: li1ht2ay-3es/sa1eb2y@rgbds-install
