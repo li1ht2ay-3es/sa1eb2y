@@ -1,0 +1,15 @@
+on:
+  # push:
+  workflow_dispatch:
+
+
+jobs:
+
+  squash-repo:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: li1ht2ay-3es/ac1io2s@squash-repo
+        with:
+          token: ${{ secrets.token }}
+          auto: true
