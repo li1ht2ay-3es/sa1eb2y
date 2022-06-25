@@ -1,0 +1,4 @@
+SOURCES_C += $(CORE_DIR)/libretro/libretro-options.c
+
+
+include Makefile.fast-bootrom

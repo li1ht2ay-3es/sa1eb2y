@@ -6,6 +6,7 @@
 
 #include "libretro.h"
 #include "retro_inline.h"
+#include "libretro-options.h"
 
 /*
  ********************************
@@ -129,6 +130,10 @@ struct retro_core_option_v2_definition option_defs_us[] = {
         },
         "sync to system clock"
     },
+    RETRO_SETVARS_FAST_BOOTROM
+    RETRO_SETVARS_GAME_LAG
+    RETRO_SETVARS_VIDEO_OVERCLOCK_TYPE
+    RETRO_SETVARS_VIDEO_OVERCLOCK
     {
         "sameboy_mono_palette",
         "Video - GB Mono Palette",
@@ -197,6 +202,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
         },
         "0"
     },
+    RETRO_SETVARS_SPRITE_LIMIT
+    RETRO_SETVARS_SPRITE_PRIORITY
+    RETRO_SETVARS_VRAM_BLOCKING
     {
         "sameboy_border",
         "Video - Display Border",
@@ -212,6 +220,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
         },
         "Super Game Boy only"
     },
+    RETRO_SETVARS_CROP_BORDER_WIDTH
+    RETRO_SETVARS_CROP_BORDER_HEIGHT
+    RETRO_SETVARS_CROP_BORDER
     {
         "sameboy_high_pass_filter_mode",
         "Audio - Highpass Filter",
@@ -636,6 +647,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
         },
         "0"
     },
+    RETRO_SETVARS_VOLUME_LEVEL
     {
         "sameboy_rumble_1",
         "Input - Rumble Mode for Game Boy #1",
