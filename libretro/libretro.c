@@ -1235,9 +1235,9 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
         }
     }
     else {
-        geom.base_width = GB_get_screen_width(&gameboy[0]);
-        geom.base_height = GB_get_screen_height(&gameboy[0]);
-        geom.aspect_ratio = (double)GB_get_screen_width(&gameboy[0]) / GB_get_screen_height(&gameboy[0]);
+        geom.base_width = get_border_width(&gameboy[0]);
+        geom.base_height = get_border_height(&gameboy[0]);
+        geom.aspect_ratio = (double)geom.base_width / geom.base_height;
     }
 
     geom.max_width = MAX_VIDEO_WIDTH * emulated_devices;
@@ -1370,9 +1370,9 @@ void retro_run(void)
         }
     }
     else {
-        video_cb(frame_buf,
-                 GB_get_screen_width(&gameboy[0]),
-                 GB_get_screen_height(&gameboy[0]),
+        video_cb(frame_buf + get_border_ptr(&gameboy[0]),
+                 get_border_width(&gameboy[0]),
+                 get_border_height(&gameboy[0]),
                  GB_get_screen_width(&gameboy[0]) * sizeof(uint32_t));
     }
 
