@@ -1378,6 +1378,8 @@ void retro_run(void)
 
     upload_output_audio_buffer();
     initialized = true;
+
+    retro_osd_message_send(environ_cb);
 }
 
 static enum rom_type check_rom_header(const uint8_t *data, size_t size)
