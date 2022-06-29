@@ -306,7 +306,7 @@ LDFLAGS += $(LIBM)
 ifeq ($(DEBUG), 1)
    CFLAGS += -O0 -g
 else
-   CFLAGS += -O2 -DNDEBUG
+   CFLAGS += -O3 -DNDEBUG
 endif
 
 include Makefile.common
@@ -329,6 +329,8 @@ else
 endif
 else
 	LD = $(CC)
+	CFLAGS += -MMD
+	CXXFLAGS += -MMD
 endif
 
 CFLAGS   += -D__LIBRETRO__ $(fpic) $(INCFLAGS) -std=gnu11 -D_GNU_SOURCE -D_USE_MATH_DEFINES
@@ -371,3 +373,4 @@ clean:
 
 .PHONY: clean
 
+-include $(OBJECTS:%.o=%.d)
