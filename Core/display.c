@@ -1480,6 +1480,10 @@ void GB_display_run(GB_gameboy_t *gb, unsigned cycles, bool force)
             if (gb->cycles_since_vblank_callback < LCDC_PERIOD) {
                 GB_SLEEP(gb, display, 1, LCDC_PERIOD - gb->cycles_since_vblank_callback);
             }
+
+            extern void retro_set_overclock(int);
+            retro_set_overclock(3);
+
             GB_display_vblank(gb, GB_VBLANK_TYPE_LCD_OFF);
         }
         return;
@@ -1956,6 +1960,12 @@ skip_slow_mode_3:
                 gb->wy_triggered = true;
             }
             gb->cycles_for_line = 0;
+
+            if (gb->current_line == LINES - 1) {
+                extern void retro_set_overclock(int);
+                retro_set_overclock(2);
+            }
+            
             GB_SLEEP(gb, display, 31, 2);
             if (gb->current_line != LINES - 1) {
                 gb->mode_for_interrupt = 2;
@@ -2072,6 +2082,9 @@ skip_slow_mode_3:
         if (gb->icd_vreset_callback) {
             gb->icd_vreset_callback(gb);
         }
+
+        extern void retro_set_overclock(int);
+        retro_set_overclock(3);
     }
 }
 

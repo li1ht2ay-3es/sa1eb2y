@@ -1605,6 +1605,8 @@ static opcode_t *opcodes[256] = {
     ld_a_da8,   pop_rr,     ld_a_dc,    di,         ill,        push_rr,    or_a_d8,    rst,        /* fX */
     ld_hl_sp_r8,ld_sp_hl,   ld_a_da16,  ei,         ill,        ill,        cp_a_d8,    rst,
 };
+
+
 void GB_cpu_run(GB_gameboy_t *gb)
 {
     if (gb->stopped) {
