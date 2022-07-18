@@ -1,0 +1,8 @@
+SOURCES_C += \
+    $(CORE_DIR)/libretro/agb_fast_boot.c \
+    $(CORE_DIR)/libretro/cgb_fast_boot.c \
+    $(CORE_DIR)/libretro/cgb0_fast_boot.c \
+    $(CORE_DIR)/libretro/dmg_fast_boot.c \
+    $(CORE_DIR)/libretro/mgb_fast_boot.c \
+    $(CORE_DIR)/libretro/sgb_fast_boot.c \
+    $(CORE_DIR)/libretro/sgb2_fast_boot.c
