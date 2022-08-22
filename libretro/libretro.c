@@ -232,6 +232,8 @@ static void audio_callback(GB_gameboy_t *gb, GB_sample_t *sample)
 
 static void vblank1(GB_gameboy_t *gb, GB_vblank_type_t type)
 {
+    retro_game_lag_frame(gb);
+
     if (type == GB_VBLANK_TYPE_REPEAT) {
         memcpy(GB_get_pixels_output(gb),
                retained_frame_1,

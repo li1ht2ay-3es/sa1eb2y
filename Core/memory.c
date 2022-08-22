@@ -987,6 +987,9 @@ static void write_vram(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
         return;
     }
     gb->vram[(addr & 0x1FFF) + (gb->cgb_vram_bank? 0x2000 : 0)] = value;
+
+    extern void retro_game_lag_video_vram();
+    retro_game_lag_video_vram();
 }
 
 static bool huc3_write(GB_gameboy_t *gb, uint8_t value)
@@ -1276,6 +1279,9 @@ static void write_banked_ram(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
 
 static void write_oam(GB_gameboy_t *gb, uint8_t addr, uint8_t value)
 {
+    extern void retro_game_lag_video_oam();
+    retro_game_lag_video_oam();
+
     if (addr < 0xA0) {
         gb->oam[addr] = value;
         return;
@@ -1803,9 +1809,15 @@ void GB_dma_run(GB_gameboy_t *gb)
             gb->dma_current_dest++;
         }
         else if (gb->dma_current_src < 0xE000) {
+            extern void retro_game_lag_video_oam();
+            retro_game_lag_video_oam();
+
             gb->oam[gb->dma_current_dest++] = GB_read_memory(gb, gb->dma_current_src);
         }
         else {
+            extern void retro_game_lag_video_oam();
+            retro_game_lag_video_oam();
+
             if (GB_is_cgb(gb)) {
                 gb->oam[gb->dma_current_dest++] = 0xFF;
             }
