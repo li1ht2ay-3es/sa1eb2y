@@ -1217,6 +1217,7 @@ static void render_line_sgb(GB_gameboy_t *gb)
     
     struct {
         unsigned pixel:2; // Color, 0-3
+        unsigned priority:6; // Object priority – 0 in DMG, OAM index in CGB
         unsigned palette:1; // Palette, 0 - 7 (CGB); 0-1 in DMG (or just 0 for BG)
         bool bg_priority:1; // BG priority bit
     } _object_buffer[160 + 16]; // allocate extra to avoid per pixel checks
@@ -1229,6 +1230,8 @@ static void render_line_sgb(GB_gameboy_t *gb)
         memset(_object_buffer, 0, sizeof(_object_buffer));
         
         while (gb->n_visible_objs) {
+            unsigned object_index = gb->visible_objs[gb->n_visible_objs - 1];
+            unsigned priority = gb->object_priority == GB_OBJECT_PRIORITY_X? 0 : object_index;
             const object_t *object = &objects[gb->visible_objs[gb->n_visible_objs - 1]];
             gb->n_visible_objs--;
             
@@ -1248,8 +1251,9 @@ static void render_line_sgb(GB_gameboy_t *gb)
                 unsigned pixel = (data0 >> 7) | ((data1 >> 7) << 1);
                 data0 <<= 1;
                 data1 <<= 1;
-                if (!p->pixel) {
+                if (pixel && (!p->pixel || priority < p->priority)) {
                     p->pixel = pixel;
+                    p->priority = priority;
                     p->palette = (object->flags & 0x10) >> 4;
                     p->bg_priority = object->flags & 0x80;
                 }
