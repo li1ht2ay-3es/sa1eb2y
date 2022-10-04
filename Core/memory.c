@@ -303,7 +303,8 @@ static uint8_t read_vram(GB_gameboy_t *gb, uint16_t addr)
         }
     }
     
-    if (unlikely(gb->vram_read_blocked && !gb->in_dma_read)) {
+    extern int get_retro_vram_blocking();
+    if (unlikely(get_retro_vram_blocking() && gb->vram_read_blocked && !gb->in_dma_read)) {
         return 0xFF;
     }
     if (unlikely(gb->display_state == 22 && GB_is_cgb(gb) && !gb->cgb_double_speed)) {
@@ -982,7 +983,9 @@ static void write_mbc(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
 static void write_vram(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
 {
     GB_display_sync(gb);
-    if (unlikely(gb->vram_write_blocked)) {
+
+    extern int get_retro_vram_blocking();
+    if (unlikely(get_retro_vram_blocking() && gb->vram_write_blocked)) {
         //GB_log(gb, "Wrote %02x to %04x (VRAM) during mode 3\n", value, addr);
         return;
     }
@@ -1855,7 +1858,8 @@ void GB_hdma_run(GB_gameboy_t *gb)
             uint16_t addr = (gb->hdma_current_dest++ & 0x1FFF);
             gb->vram[vram_base + addr] = byte;
             // TODO: vram_write_blocked might not be the correct timing
-            if (gb->vram_write_blocked /* && (gb->model & ~GB_MODEL_GBP_BIT) < GB_MODEL_AGB_B */) {
+            extern int get_retro_vram_blocking();
+            if (get_retro_vram_blocking() && gb->vram_write_blocked /* && (gb->model & ~GB_MODEL_GBP_BIT) < GB_MODEL_AGB_B */) {
                 gb->vram[(vram_base ^ 0x2000) + addr] = byte;
             }
         }
@@ -1869,7 +1873,8 @@ void GB_hdma_run(GB_gameboy_t *gb)
                 uint16_t addr = (gb->hdma_current_dest & gb->addr_for_hdma_conflict & 0x1FFF);
                 gb->vram[vram_base + addr] = byte;
                 // TODO: vram_write_blocked might not be the correct timing
-                if (gb->vram_write_blocked /* && (gb->model & ~GB_MODEL_GBP_BIT) < GB_MODEL_AGB_B */) {
+                extern int get_retro_vram_blocking();
+                if (get_retro_vram_blocking() && gb->vram_write_blocked /* && (gb->model & ~GB_MODEL_GBP_BIT) < GB_MODEL_AGB_B */) {
                     gb->vram[(vram_base ^ 0x2000) + addr] = byte;
                 }
             }
