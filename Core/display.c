@@ -1963,7 +1963,7 @@ skip_slow_mode_3:
 
             if (gb->current_line == LINES - 1) {
                 extern void retro_set_overclock(int);
-                retro_set_overclock(2);
+                retro_set_overclock(1);
             }
             
             GB_SLEEP(gb, display, 31, 2);
@@ -2084,7 +2084,7 @@ skip_slow_mode_3:
         }
 
         extern void retro_set_overclock(int);
-        retro_set_overclock(3);
+        retro_set_overclock(2);
     }
 }
 
