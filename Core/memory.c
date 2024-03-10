@@ -3,6 +3,9 @@
 #include <string.h>
 #include "gb.h"
 
+extern void retro_game_lag_video_vram();
+extern int retro_vram_blocking;
+
 typedef uint8_t read_function_t(GB_gameboy_t *gb, uint16_t addr);
 typedef void write_function_t(GB_gameboy_t *gb, uint16_t addr, uint8_t value);
 
@@ -304,7 +307,7 @@ static uint8_t read_vram(GB_gameboy_t *gb, uint16_t addr)
         }
     }
     
-    if (unlikely(gb->vram_read_blocked && !gb->in_dma_read)) {
+    if (unlikely(gb->vram_read_blocked && !gb->in_dma_read && retro_vram_blocking)) {
         return 0xFF;
     }
     if (unlikely(gb->display_state == 22)) {
@@ -638,12 +641,12 @@ static uint8_t read_high_memory(GB_gameboy_t *gb, uint16_t addr)
                 if (!GB_is_cgb(gb)) return 0xFF;
                 GB_apu_run(gb, true);
                 return ((gb->apu.is_active[GB_SQUARE_2] ? (gb->apu.samples[GB_SQUARE_2] << 4) : 0) |
-                        (gb->apu.is_active[GB_SQUARE_1] ? (gb->apu.samples[GB_SQUARE_1]) : 0)) & (gb->model <= GB_MODEL_CGB_C? gb->apu.pcm_mask[0] : 0xFF);
+                        (gb->apu.is_active[GB_SQUARE_1] ? (gb->apu.samples[GB_SQUARE_1]) : 0)) & ((gb->model <= GB_MODEL_CGB_C)? gb->apu.pcm_mask[0] : 0xFF);
             case GB_IO_PCM34:
                 if (!GB_is_cgb(gb)) return 0xFF;
                 GB_apu_run(gb, true);
                 return ((gb->apu.is_active[GB_NOISE] ? (gb->apu.samples[GB_NOISE] << 4) : 0) |
-                        (gb->apu.is_active[GB_WAVE] ? (gb->apu.samples[GB_WAVE]) : 0))  & (gb->model <= GB_MODEL_CGB_C? gb->apu.pcm_mask[1] : 0xFF);
+                        (gb->apu.is_active[GB_WAVE] ? (gb->apu.samples[GB_WAVE]) : 0))  & ((gb->model <= GB_MODEL_CGB_C)? gb->apu.pcm_mask[1] : 0xFF);
             case GB_IO_JOYP:
                 gb->joyp_accessed = true;
                 GB_timing_sync(gb);
@@ -706,7 +709,7 @@ static uint8_t read_high_memory(GB_gameboy_t *gb, uint16_t addr)
                     return 0xFF;
                 }
                 uint8_t index_reg = (addr & 0xFF) - 1;
-                return ((addr & 0xFF) == GB_IO_BGPD?
+                return (((addr & 0xFF) == GB_IO_BGPD)?
                        gb->background_palettes_data :
                        gb->object_palettes_data)[gb->io_registers[index_reg] & 0x3F];
             }
@@ -1003,11 +1006,14 @@ static void write_mbc(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
 static void write_vram(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
 {
     GB_display_sync(gb);
-    if (unlikely(gb->vram_write_blocked)) {
+    gb->cpu_vram_bus = value;
+    if (unlikely(gb->vram_write_blocked && retro_vram_blocking)) {
         //GB_log(gb, "Wrote %02x to %04x (VRAM) during mode 3\n", value, addr);
         return;
     }
     gb->vram[(addr & 0x1FFF) + (gb->cgb_vram_bank? 0x2000 : 0)] = value;
+
+    retro_game_lag_video_vram();
 }
 
 static bool huc3_write(GB_gameboy_t *gb, uint8_t value)
@@ -1297,6 +1303,8 @@ static void write_banked_ram(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
 
 static void write_oam(GB_gameboy_t *gb, uint8_t addr, uint8_t value)
 {
+    retro_game_lag_video_oam();
+
     if (addr < 0xA0) {
         gb->oam[addr] = value;
         return;
@@ -1416,6 +1424,9 @@ static void write_high_memory(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
                 if ((!gb->boot_rom_finished || (gb->io_registers[GB_IO_KEY0] & 8)) && GB_is_cgb(gb)) {
                     gb->io_registers[addr & 0xFF] = value;
                     gb->object_priority = (value & 1) ? GB_OBJECT_PRIORITY_X : GB_OBJECT_PRIORITY_INDEX;
+
+                    extern void set_retro_sprite_priority(GB_gameboy_t *gb);
+                    set_retro_sprite_priority(gb);
                 }
                 else if (gb->cgb_mode) {
                     gb->io_registers[addr & 0xFF] = value;
@@ -1570,7 +1581,7 @@ static void write_high_memory(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
                         switch (((gb->io_registers[GB_IO_JOYP] & 0x30) >> 4) |
                                 ((value & 0x30) >> 2)) {
                             case 0x4: delay = 48; break;
-                            case 0x6: delay = gb->model == GB_MODEL_MGB? 56 : 48; break;
+                            case 0x6: delay = (gb->model == GB_MODEL_MGB)? 56 : 48; break;
                             case 0x8: delay = 24; break;
                             case 0x9: delay = 24; break;
                             case 0xC: delay = 48; break;
@@ -1651,7 +1662,7 @@ static void write_high_memory(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
                     }
                     return;
                 }
-                ((addr & 0xFF) == GB_IO_BGPD?
+                (((addr & 0xFF) == GB_IO_BGPD)?
                  gb->background_palettes_data :
                  gb->object_palettes_data)[gb->io_registers[index_reg] & 0x3F] = value;
                 GB_palette_changed(gb, (addr & 0xFF) == GB_IO_BGPD, gb->io_registers[index_reg] & 0x3F);
@@ -1719,7 +1730,7 @@ static void write_high_memory(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
                     GB_serial_master_edge(gb);
                 }
                 gb->io_registers[GB_IO_SC] = value | (~0x83);
-                gb->serial_mask = gb->cgb_mode && (value & 2)? 4 : 0x80;
+                gb->serial_mask = (gb->cgb_mode && (value & 2))? 4 : 0x80;
                 if ((value & 0x80) && (value & 0x1) ) {
                     if (gb->serial_transfer_bit_start_callback) {
                         gb->serial_transfer_bit_start_callback(gb, gb->io_registers[GB_IO_SB] & 0x80);
@@ -1858,9 +1869,13 @@ void GB_dma_run(GB_gameboy_t *gb)
             gb->dma_current_dest++;
         }
         else if (gb->dma_current_src < 0xE000) {
+            retro_game_lag_video_oam();
+
             gb->oam[gb->dma_current_dest++] = GB_read_memory(gb, gb->dma_current_src);
         }
         else {
+            retro_game_lag_video_oam();
+
             if (GB_is_cgb(gb)) {
                 gb->oam[gb->dma_current_dest++] = 0xFF;
             }
@@ -1910,7 +1925,7 @@ void GB_hdma_run(GB_gameboy_t *gb)
             uint16_t addr = (gb->hdma_current_dest++ & 0x1FFF);
             gb->vram[vram_base + addr] = byte;
             // TODO: vram_write_blocked might not be the correct timing
-            if (gb->vram_write_blocked /* && (gb->model & ~GB_MODEL_GBP_BIT) < GB_MODEL_AGB_B */) {
+            if (gb->vram_write_blocked /* && (gb->model & ~GB_MODEL_GBP_BIT) < GB_MODEL_AGB_B */ && retro_vram_blocking) {
                 gb->vram[(vram_base ^ 0x2000) + addr] = byte;
             }
         }
@@ -1924,7 +1939,7 @@ void GB_hdma_run(GB_gameboy_t *gb)
                 uint16_t addr = (gb->hdma_current_dest & gb->addr_for_hdma_conflict & 0x1FFF);
                 gb->vram[vram_base + addr] = byte;
                 // TODO: vram_write_blocked might not be the correct timing
-                if (gb->vram_write_blocked /* && (gb->model & ~GB_MODEL_GBP_BIT) < GB_MODEL_AGB_B */) {
+                if (gb->vram_write_blocked /* && (gb->model & ~GB_MODEL_GBP_BIT) < GB_MODEL_AGB_B */ && retro_vram_blocking) {
                     gb->vram[(vram_base ^ 0x2000) + addr] = byte;
                 }
             }

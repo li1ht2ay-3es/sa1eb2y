@@ -1,0 +1,22 @@
+Core
+- BIOS boot animation skipping
+- CPU overclock multiplier
+- DMG wave RAM corruption removed  [always]
+- Sprite line limit removed
+- Sprite sorting priority
+- VRAM access outside VBlank
+
+
+Libretro
+- Audio volume level
+- Border cropping
+- Game lag measuring  [input, video]
+- Optimization flag
+
+
+Compiler
+- Ternary () guards  [mingw32-gcc-posix parsing error, creates lots of mystery bugs]
+
+
+Speedhack
+- Lower audio rate  [192000 Hz] [lot more speed, slightly fuzzy audio]

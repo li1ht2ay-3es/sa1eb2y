@@ -607,9 +607,9 @@ struct GB_gameboy_internal_s {
         bool window_is_being_fetched;
         bool wx166_glitch;
         bool wx_triggered;
-        uint8_t visible_objs[10];
-        uint8_t objects_x[10];
-        uint8_t objects_y[10];
+        uint8_t visible_objs[40];
+        uint8_t objects_x[40];
+        uint8_t objects_y[40];
         uint8_t object_tile_data[2];
         uint8_t mode2_y_bus;
         // They're the same bus

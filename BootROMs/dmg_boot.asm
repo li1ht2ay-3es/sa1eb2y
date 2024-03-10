@@ -30,6 +30,10 @@ Start:
     ld a, $54
     ldh [rBGP], a
 
+IF DEF(FAST)
+    ld a, 0
+    ldh [rSCY], a
+ELSE
 ; Load logo from ROM.
 ; A nibble represents a 4-pixels line, 2 bytes represent a 4x4 tile, scaled to 8x8.
 ; Tiles are ordered left to right, top to bottom.
@@ -74,14 +78,16 @@ Start:
 
     ld a, 30
     ldh [rSCY], a
-    
+ENDC
+
     ; Turn on LCD
     ld a, $91
     ldh [rLCDC], a
 
     ld d, (-119) & $FF
     ld c, 15
-    
+
+IF !DEF(FAST)
 .animate
     call WaitFrame
     ld a, d
@@ -116,7 +122,8 @@ Start:
 ; Wait ~1 second
     ld b, 60
     call WaitBFrames
-    
+
+ENDC
 ; Set registers to match the original DMG boot
 IF DEF(MGB)
     ld hl, $FFB0

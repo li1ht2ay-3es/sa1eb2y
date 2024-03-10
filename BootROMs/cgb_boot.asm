@@ -48,6 +48,12 @@ ENDC
     ld a, $fc
     ldh [rBGP], a
 
+IF DEF(FAST)
+; Clear the second VRAM bank
+    ld a, 1
+    ldh [rVBK], a
+    call ClearMemoryPage8000
+ELSE
 ; Load logo from ROM.
 ; A nibble represents a 4-pixels line, 2 bytes represent a 4x4 tile, scaled to 8x8.
 ; Tiles are ordered left to right, top to bottom.
@@ -71,6 +77,7 @@ ENDC
     ldh [rVBK], a
     call ClearMemoryPage8000
     call LoadTileset
+ENDC
 
     ld b, 3
 IF DEF(FAST)
@@ -210,13 +217,13 @@ IF !DEF(FAST)
     jr nz, .waitLoop
 ELSE
     ld a, $c1
-    call PlaySound
+    ;call PlaySound
 ENDC
     call Preboot
 IF DEF(AGB)
     inc b
 ENDC
-    jr BootGame
+    jp BootGame
 
 HDMAData:
     db $D0, $00, $98, $A0, $12
@@ -861,10 +868,12 @@ ENDC
     ; Clear RAM Bank 2 (Like the original boot ROM)
     ld hl, $D000
     call ClearMemoryPage
+IF !DEF(FAST)
     inc a
     call ClearVRAMViaHDMA
     call _ClearVRAMViaHDMA
     call ClearVRAMViaHDMA ; A = $40, so it's bank 0
+ENDC
     xor a
     ldh [rSVBK], a
     cpl

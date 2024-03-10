@@ -8,7 +8,8 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #ifndef WIIU
-#define AUDIO_FREQUENCY 384000
+      #define AUDIO_FREQUENCY 384000
+      //#define AUDIO_FREQUENCY 768000
 #else
 /* Use the internal sample rate for the Wii U */
 #define AUDIO_FREQUENCY 48000
@@ -29,6 +30,238 @@ static const char slash = '\\';
 #else
 static const char slash = '/';
 #endif
+
+static char osd_message[4096];
+
+void retro_osd_message_add(char *str)
+{
+	if (osd_message[0] != '\0')
+		strcat(osd_message, "\n");
+
+
+	strcat(osd_message, str);
+}
+
+void retro_osd_message_send(retro_environment_t environ_cb)
+{
+	if (osd_message[0] == '\0')
+		return;
+
+
+	struct retro_message msg = { osd_message, 120+30 };
+	environ_cb(RETRO_ENVIRONMENT_SET_MESSAGE, &msg);
+
+
+	osd_message[0] = '\0';
+}
+
+int retro_game_lag = 0;
+
+static int input_count;
+
+static bool write_oam;
+static bool write_vram;
+
+static int video_count;
+static int video_oam_count;
+static int video_vram_count;
+
+static int game_frame;
+
+void retro_game_lag_frame(GB_gameboy_t *gb)
+{
+	static char tmp[512];
+
+
+	if (retro_game_lag == 0)
+		return;
+
+
+	if (write_oam || write_vram) {
+		video_count++;
+	}
+
+	if (write_oam) {
+		video_oam_count++;
+
+		write_oam = false;
+	}
+
+	if (write_vram) {
+		video_vram_count++;
+
+		write_vram = false;
+	}
+
+	if (GB_get_joyp_accessed(gb)) {
+		input_count++;
+	}
+	GB_clear_joyp_accessed(gb);
+
+
+	game_frame++;
+	if (game_frame < retro_game_lag)
+		return;
+
+
+	sprintf(tmp, "lag: %di -- %df <%do %dv>  [%d]",
+		input_count,
+		video_count, video_oam_count, video_vram_count,
+		game_frame);
+
+
+	//printf("%s\n", tmp);
+	retro_osd_message_add(tmp);
+
+
+	retro_game_lag_reset();
+}
+
+void retro_game_lag_reset()
+{
+	input_count = 0;
+
+	video_count = 0;
+	video_oam_count = 0;
+	video_vram_count = 0;
+
+	write_oam = false;
+	write_vram = false;
+
+	game_frame = 0;
+}
+
+void retro_game_lag_video_oam()
+{
+	write_oam = true;
+}
+
+void retro_game_lag_video_vram()
+{
+	write_vram = true;
+}
+
+int retro_video_overclock = 1;
+int retro_video_overclock_type = 0;
+
+static int overclock_cycles;
+
+void retro_set_overclock(int type)
+{
+/*
+	1 = pre-vblank  (LY = 144-1, h-blank)
+	2 = post-vblank  (LY = 0, start)
+	3 = lcd off
+*/
+	overclock_cycles = 0;
+
+	if (retro_video_overclock_type == 0) return;
+
+	if (
+		type == 3 ||
+		retro_video_overclock_type == 3 ||
+		retro_video_overclock_type == type
+	) {
+		// emulator always runs in double speed cycles  [114 cpu * 154 lines]
+		overclock_cycles = (long long) ((retro_video_overclock - 1) * 114 * 154 * 2);
+	}
+
+	if (retro_video_overclock_type == 3) {
+		// split pre-vblank and post-vblank
+		overclock_cycles /= 2;
+	}
+}
+
+int retro_get_overclock(GB_gameboy_t *gb, int cycles)
+{
+/*
+	direct wave pcm = manual timing
+	- Boxxle II = yeah! stage clear  [di, ffff wave, 0 freq / pulse]
+*/
+
+	if (
+		gb->ime == false &&
+		gb->apu.global_enable &&
+		gb->apu.wave_channel.enable &&
+		gb->apu.is_active[GB_WAVE] &&
+		gb->apu.wave_channel.pulse_length == 0x100 &&
+		gb->apu.wave_channel.sample_length == 0
+	) {
+		return 0;
+	}
+
+
+	if (gb->cgb_double_speed) {
+		cycles *= 2;
+	}
+
+	if (overclock_cycles > 0) {
+		overclock_cycles -= cycles;
+
+		return 1;
+	}
+
+	return 0;
+}
+
+int retro_master_volume = 100;
+
+int retro_vram_blocking = 1;
+
+int retro_fast_boot = 0;
+
+int retro_sprite_limit = 10;
+int retro_sprite_priority = 0;
+
+void set_retro_sprite_priority(GB_gameboy_t *gb)
+{
+    if (!GB_is_cgb_in_cgb_mode(gb)) {
+        if (retro_sprite_priority) {
+            gb->object_priority = GB_OBJECT_PRIORITY_INDEX;
+        }
+        else {
+            gb->object_priority = GB_OBJECT_PRIORITY_X;
+        }
+    }
+}
+
+int retro_crop_border = 0;
+int retro_crop_border_width = 0;
+int retro_crop_border_height = 0;
+
+int get_border_width(GB_gameboy_t *gb)
+{
+	int width = GB_get_screen_width(gb);
+
+	if (retro_crop_border && width == 256) {
+		width -= retro_crop_border_width;
+	}
+
+	return width;
+}
+
+int get_border_height(GB_gameboy_t *gb)
+{
+	int height = GB_get_screen_height(gb);
+
+	if (retro_crop_border && height == 224) {
+		height -= retro_crop_border_height;
+	}
+
+	return height;
+}
+
+int get_border_ptr(GB_gameboy_t *gb)
+{
+	int width = GB_get_screen_width(gb);
+	int ptr = 0;
+
+	if (retro_crop_border && width == 256) {
+		ptr = (retro_crop_border_width / 2) + ((retro_crop_border_height / 2) * width);
+	}
+
+	return ptr;
+}
 
 #define MAX_VIDEO_WIDTH 256
 #define MAX_VIDEO_HEIGHT 224
@@ -144,21 +377,21 @@ static void GB_update_keys_status(GB_gameboy_t *gb, unsigned port)
         }
     }
 
-    GB_set_key_state_for_player(gb, GB_KEY_RIGHT,  emulated_devices == 1 ? port : 0,
+    GB_set_key_state_for_player(gb, GB_KEY_RIGHT,  (emulated_devices == 1) ? port : 0,
         joypad_bits & (1 << RETRO_DEVICE_ID_JOYPAD_RIGHT));
-    GB_set_key_state_for_player(gb, GB_KEY_LEFT,   emulated_devices == 1 ? port : 0,
+    GB_set_key_state_for_player(gb, GB_KEY_LEFT,   (emulated_devices == 1) ? port : 0,
         joypad_bits & (1 << RETRO_DEVICE_ID_JOYPAD_LEFT));
-    GB_set_key_state_for_player(gb, GB_KEY_UP,     emulated_devices == 1 ? port : 0,
+    GB_set_key_state_for_player(gb, GB_KEY_UP,     (emulated_devices == 1) ? port : 0,
         joypad_bits & (1 << RETRO_DEVICE_ID_JOYPAD_UP));
-    GB_set_key_state_for_player(gb, GB_KEY_DOWN,   emulated_devices == 1 ? port : 0,
+    GB_set_key_state_for_player(gb, GB_KEY_DOWN,   (emulated_devices == 1) ? port : 0,
         joypad_bits & (1 << RETRO_DEVICE_ID_JOYPAD_DOWN));
-    GB_set_key_state_for_player(gb, GB_KEY_A,      emulated_devices == 1 ? port : 0,
+    GB_set_key_state_for_player(gb, GB_KEY_A,      (emulated_devices == 1) ? port : 0,
         joypad_bits & (1 << RETRO_DEVICE_ID_JOYPAD_A));
-    GB_set_key_state_for_player(gb, GB_KEY_B,      emulated_devices == 1 ? port : 0,
+    GB_set_key_state_for_player(gb, GB_KEY_B,      (emulated_devices == 1) ? port : 0,
         joypad_bits & (1 << RETRO_DEVICE_ID_JOYPAD_B));
-    GB_set_key_state_for_player(gb, GB_KEY_SELECT, emulated_devices == 1 ? port : 0,
+    GB_set_key_state_for_player(gb, GB_KEY_SELECT, (emulated_devices == 1) ? port : 0,
         joypad_bits & (1 << RETRO_DEVICE_ID_JOYPAD_SELECT));
-    GB_set_key_state_for_player(gb, GB_KEY_START,  emulated_devices == 1 ? port : 0,
+    GB_set_key_state_for_player(gb, GB_KEY_START,  (emulated_devices == 1) ? port : 0,
         joypad_bits & (1 << RETRO_DEVICE_ID_JOYPAD_START));
 
 }
@@ -226,8 +459,8 @@ static void audio_callback(GB_gameboy_t *gb, GB_sample_t *sample)
         ensure_output_audio_buffer_capacity(output_audio_buffer.capacity * 1.5);
     }
 
-    output_audio_buffer.data[output_audio_buffer.size++] = sample->left;
-    output_audio_buffer.data[output_audio_buffer.size++] = sample->right;
+    output_audio_buffer.data[output_audio_buffer.size++] = (sample->left * retro_master_volume) / 100;
+    output_audio_buffer.data[output_audio_buffer.size++] = (sample->right * retro_master_volume) / 100;
 }
 
 static void vblank1(GB_gameboy_t *gb, GB_vblank_type_t type)
@@ -238,6 +471,8 @@ static void vblank1(GB_gameboy_t *gb, GB_vblank_type_t type)
                GB_get_screen_width(gb) * GB_get_screen_height(gb) * sizeof(uint32_t));
     }
     vblank1_occurred = true;
+
+    retro_game_lag_frame(gb);
 }
 
 static void vblank2(GB_gameboy_t *gb, GB_vblank_type_t type)
@@ -535,6 +770,35 @@ static void boot_rom_load(GB_gameboy_t *gb, GB_boot_rom_t type)
     log_cb(RETRO_LOG_INFO, "Loading boot image: %s\n", buf);
 
     if (GB_load_boot_rom(gb, buf)) {
+        if (retro_fast_boot) {
+            extern const unsigned char dmg_fast_boot[], cgb_fast_boot[], agb_fast_boot[], sgb_fast_boot[], sgb2_fast_boot[];
+            extern const unsigned dmg_fast_boot_length, cgb_fast_boot_length, agb_fast_boot_length, sgb_fast_boot_length, sgb2_fast_boot_length;
+
+            if (type == GB_BOOT_ROM_DMG) {
+                boot_code = (const unsigned char *) dmg_fast_boot;
+                boot_length = dmg_fast_boot_length;
+            }
+
+            else if (type == GB_BOOT_ROM_CGB) {
+                boot_code = (const unsigned char *) cgb_fast_boot;
+                boot_length = cgb_fast_boot_length;
+            }
+
+            else if (type == GB_BOOT_ROM_AGB) {
+                boot_code = (const unsigned char *) agb_fast_boot;
+                boot_length = agb_fast_boot_length;
+            }
+
+            else if (type == GB_BOOT_ROM_SGB) {
+                boot_code = (const unsigned char *) sgb_fast_boot;
+                boot_length = sgb_fast_boot_length;
+            }
+
+            else if (type == GB_BOOT_ROM_SGB2) {
+                boot_code = (const unsigned char *) sgb2_fast_boot;
+                boot_length = sgb2_fast_boot_length;
+            }
+        }
         GB_load_boot_rom_from_buffer(gb, boot_code, boot_length);
     }
 }
@@ -1155,6 +1419,93 @@ static void check_variables()
 
     }
     set_variable_visibility();
+
+    var.key = "sameboy_sprite_limit";
+    var.value = NULL;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+       retro_sprite_limit = (strcmp(var.value, "On") == 0) ? 40 : 10;
+    }
+
+    var.key = "sameboy_sprite_priority";
+    var.value = NULL;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+        retro_sprite_priority = strcmp(var.value, "New") == 0;
+
+        for (int i = 0; i < emulated_devices; i++) {
+            set_retro_sprite_priority(&gameboy[i]);
+        }
+    }
+
+    var.key = "sameboy_crop_border";
+    var.value = NULL;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+        retro_crop_border = strcmp(var.value, "On") == 0;
+        geometry_updated = true;
+    }
+
+    var.key = "sameboy_crop_border_width";
+    var.value = NULL;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+        retro_crop_border_width = atoi(var.value);
+        geometry_updated = true;
+    }
+
+    var.key = "sameboy_crop_border_height";
+    var.value = NULL;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+        retro_crop_border_height = atoi(var.value);
+        geometry_updated = true;
+    }
+
+    var.key = "sameboy_fast_bootrom";
+    var.value = NULL;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+        retro_fast_boot = strcmp(var.value, "On") == 0;
+    }
+
+    var.key = "sameboy_vram_blocking";
+	var.value = NULL;
+	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+		retro_vram_blocking = strcmp(var.value, "On") != 0;
+	}
+
+    var.key = "sameboy_master_volume";
+    var.value = NULL;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+        retro_master_volume = atoi(var.value);
+    }
+
+    var.key = "sameboy_video_overclock";
+    var.value = NULL;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+        retro_video_overclock = atoi(var.value);
+    }
+
+	var.key = "sameboy_video_overclock_type";
+    var.value = NULL;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+        retro_video_overclock_type = 0;
+	
+        if (strcmp("Pre-Vblank", var.value) == 0) {
+            retro_video_overclock_type = 1;
+        }
+
+        else if (strcmp("Post-Vblank", var.value) == 0) {
+            retro_video_overclock_type = 2;
+        }
+
+        else if (strcmp("Split", var.value) == 0) {
+            retro_video_overclock_type = 3;
+        }
+    }
+
+    var.key = "sameboy_game_lag";
+	var.value = NULL;
+	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+		retro_game_lag = (strcmp("On", var.value) == 0) ? 60 : 0;
+
+		retro_game_lag_reset();
+	}
 }
 
 void retro_init(void)
@@ -1235,9 +1586,9 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
         }
     }
     else {
-        geom.base_width = GB_get_screen_width(&gameboy[0]);
-        geom.base_height = GB_get_screen_height(&gameboy[0]);
-        geom.aspect_ratio = (double)GB_get_screen_width(&gameboy[0]) / GB_get_screen_height(&gameboy[0]);
+        geom.base_width = get_border_width(&gameboy[0]);
+        geom.base_height = get_border_height(&gameboy[0]);
+        geom.aspect_ratio = (double)geom.base_width / geom.base_height;
     }
 
     geom.max_width = MAX_VIDEO_WIDTH * emulated_devices;
@@ -1370,14 +1721,16 @@ void retro_run(void)
         }
     }
     else {
-        video_cb(frame_buf,
-                 GB_get_screen_width(&gameboy[0]),
-                 GB_get_screen_height(&gameboy[0]),
+        video_cb(frame_buf + get_border_ptr(&gameboy[0]),
+                 get_border_width(&gameboy[0]),
+                 get_border_height(&gameboy[0]),
                  GB_get_screen_width(&gameboy[0]) * sizeof(uint32_t));
     }
 
     upload_output_audio_buffer();
     initialized = true;
+
+    retro_osd_message_send(environ_cb);
 }
 
 static enum rom_type check_rom_header(const uint8_t *data, size_t size)
@@ -1607,6 +1960,8 @@ bool retro_unserialize(const void *data, size_t size)
 
         size -= state_size;
         data = ((uint8_t *)data) + state_size;
+
+        set_retro_sprite_priority(&gameboy[i]);
     }
 
     return true;
