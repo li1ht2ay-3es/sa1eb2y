@@ -92,5 +92,5 @@ runs:
     with:
       name: SameBoy_${{ inputs.arch }}
       path: |
-        ${{ github.workspace }}/build/bin/**.dll
-        ${{ github.workspace }}/build/bin/**.so
+        ${{ github.workspace }}/**.dll
+        ${{ github.workspace }}/**.so
