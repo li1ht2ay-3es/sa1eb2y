@@ -19,4 +19,4 @@ Compiler
 
 
 Speedhack
-- Lower audio rate  [192000 Hz] [lot more speed, slightly fuzzy audio]
+- 192000 audio rate  [X86 only = lot more speed]
