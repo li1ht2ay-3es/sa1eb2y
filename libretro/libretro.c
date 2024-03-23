@@ -8,8 +8,12 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #ifndef WIIU
+#if defined(__GNUC__) && defined(__x86_64__)
+      #define AUDIO_FREQUENCY 192000
+#else
       #define AUDIO_FREQUENCY 384000
       //#define AUDIO_FREQUENCY 768000
+#endif
 #else
 /* Use the internal sample rate for the Wii U */
 #define AUDIO_FREQUENCY 48000
